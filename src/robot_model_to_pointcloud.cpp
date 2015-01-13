@@ -1,4 +1,5 @@
 // Author : Antoine Hoarau <hoarau.robotics@gmail.com>
+#include <pluginlib/class_loader.h>
 #include <stdio.h>
 // ROS
 #include <ros/ros.h>
@@ -8,7 +9,7 @@
 #include <sensor_msgs/point_cloud_conversion.h>
 #include <sensor_msgs/PointCloud2.h>
 // MoveIt!
-#include <pluginlib/class_loader.h>
+
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
@@ -62,29 +63,28 @@ int main(int argc, char** argv)
             std::vector<robot_model::LinkModel*> links = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
             cloud.points.clear();
 
-            for (std::size_t i = 0 ; i < links.size() ; ++i)
+            for (std::vector<robot_model::LinkModel*>::iterator it = links.begin() ; it !=links.end() ; ++it)
             {
-                ROS_DEBUG_STREAM(""<<links[i]->getName());
+                ROS_DEBUG_STREAM(""<<(*it)->getName());
 		// Get the link transform (base to link_i )
-                const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getLinkState(links[i]->getName())->getGlobalCollisionBodyTransform();
-                const shapes::ShapeConstPtr& shape = links[i]->getShape();
-
-                ROS_DEBUG_STREAM(""<<Transform.matrix());
-
+		const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getLinkState((*it)->getName())->getGlobalCollisionBodyTransform();
+		const shapes::ShapeConstPtr& shape = (*it)->getShape();
+		
+		ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
 		// Meshes to pointcloud
                 if(shape->type == shapes::MESH)
                 {
                     const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
                     for(std::size_t i=0;i<3*mesh->vertex_count;i=i+3)
                     {
-                        Eigen::Vector3d vertice(mesh->vertices[i],mesh->vertices[i+1],mesh->vertices[i+2]);
+                        const Eigen::Vector3d vertice(mesh->vertices[i],mesh->vertices[i+1],mesh->vertices[i+2]);
 			// Get the point location with respect to the base
-                        Eigen::Vector3d vertice_transformed = Transform*vertice;
+                        const Eigen::Vector3d vertice_transformed = Transform*vertice;
 
                         pt.x = vertice_transformed[0];
                         pt.y = vertice_transformed[1];
                         pt.z = vertice_transformed[2];
-
+			
                         cloud.points.push_back(pt);
                     }
                 }
@@ -94,11 +94,11 @@ int main(int argc, char** argv)
 	    // PointCloud to PointCloud2
             sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
             cloud_pub.publish(cloud2);
-
+	    ros::Duration(1./50.).sleep();
         }else{
             ROS_INFO("Waiting for /joint_state to be broadcast");
         }
     }
-    ros::shutdown();
+    //ros::shutdown();
     return 0;
 }
