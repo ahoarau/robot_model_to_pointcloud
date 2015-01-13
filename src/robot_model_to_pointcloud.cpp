@@ -96,7 +96,7 @@ int main(int argc, char** argv)
             cloud_pub.publish(cloud2);
 	    ros::Duration(1./50.).sleep();
         }else{
-            ROS_INFO("Waiting for /joint_state to be broadcast");
+            ROS_INFO("Waiting for %s to be broadcasted",joint_states_topic.c_str());
         }
     }
     //ros::shutdown();
