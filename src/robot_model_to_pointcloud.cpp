@@ -59,7 +59,7 @@ int main(int argc, char** argv)
     geometry_msgs::Point32 pt;
     
     while(ros::ok()){
-        if(psm.getStateMonitor()->waitForCurrentState(1.0)){
+        //if(psm.getStateMonitor()->waitForCurrentState(1.0)){ //not really necessary
             std::vector<robot_model::LinkModel*> links = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
             cloud.points.clear();
 
@@ -95,9 +95,9 @@ int main(int argc, char** argv)
             sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
             cloud_pub.publish(cloud2);
 	    ros::Duration(1./50.).sleep();
-        }else{
+        /*}else{
             ROS_INFO("Waiting for %s to be broadcasted",joint_states_topic.c_str());
-        }
+        }*/
     }
     //ros::shutdown();
     return 0;
