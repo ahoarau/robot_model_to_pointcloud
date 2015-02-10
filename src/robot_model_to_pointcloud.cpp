@@ -53,52 +53,55 @@ int main(int argc, char** argv)
     planning_scene_monitor::PlanningSceneMonitor psm("/robot_description");
     psm.startStateMonitor(joint_states_topic);
     
-    sensor_msgs::PointCloud cloud;
-    sensor_msgs::PointCloud2 cloud2;
-    cloud.header.frame_id=psm.getStateMonitor()->getRobotModel()->getRootLinkName();
-    geometry_msgs::Point32 pt;
-    
     while(ros::ok()){
-        if(psm.getStateMonitor()->waitForCurrentState(1.0)){
-            std::vector<robot_model::LinkModel*> links = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
-            cloud.points.clear();
+        sensor_msgs::PointCloud cloud;
+        sensor_msgs::PointCloud2 cloud2;
+        cloud.header.frame_id=psm.getStateMonitor()->getRobotModel()->getRootLinkName();
+        geometry_msgs::Point32 pt;
 
-            for (std::vector<robot_model::LinkModel*>::iterator it = links.begin() ; it !=links.end() ; ++it)
+        //if(psm.getStateMonitor()->waitForCurrentState(1.0)){
+        const std::vector<const robot_model::LinkModel*> links = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
+
+        for (std::vector<const robot_model::LinkModel*>::const_iterator it = links.begin() ; it !=links.end() ; ++it)
+        {
+            const robot_model::LinkModel* lm = *it;
+            ROS_DEBUG_STREAM(""<<lm->getName());
+            // Get the link transform (base to link_i )
+            const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getCollisionBodyTransform(lm,/*lm->getFirstCollisionBodyTransformIndex()*/0);
+            const std::vector<shapes::ShapeConstPtr>& shapes = lm->getShapes();
+            for(std::vector<shapes::ShapeConstPtr>::const_iterator sit=shapes.begin();sit!=shapes.end();++sit)
             {
-                ROS_DEBUG_STREAM(""<<(*it)->getName());
-		// Get the link transform (base to link_i )
-		const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getLinkState((*it)->getName())->getGlobalCollisionBodyTransform();
-		const shapes::ShapeConstPtr& shape = (*it)->getShape();
-		
-		ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
-		// Meshes to pointcloud
+                const shapes::ShapeConstPtr& shape = (*sit);
+
+                ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
+                // Meshes to pointcloud
                 if(shape->type == shapes::MESH)
                 {
                     const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
                     for(std::size_t i=0;i<3*mesh->vertex_count;i=i+3)
                     {
                         const Eigen::Vector3d vertice(mesh->vertices[i],mesh->vertices[i+1],mesh->vertices[i+2]);
-			// Get the point location with respect to the base
+                        // Get the point location with respect to the base
+
                         const Eigen::Vector3d vertice_transformed = Transform*vertice;
 
                         pt.x = vertice_transformed[0];
                         pt.y = vertice_transformed[1];
                         pt.z = vertice_transformed[2];
-			
+
                         cloud.points.push_back(pt);
                     }
                 }
 
             }
             cloud.header.stamp = ros::Time::now();
-	    // PointCloud to PointCloud2
+            // PointCloud to PointCloud2
             sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
             cloud_pub.publish(cloud2);
-	    ros::Duration(1./50.).sleep();
-        }else{
-            ROS_INFO("Waiting for %s to be broadcasted",joint_states_topic.c_str());
+
         }
+        ros::Duration(1./50.).sleep();
+        //}
     }
-    //ros::shutdown();
     return 0;
 }
