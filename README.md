@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ahoarau/robot_model_to_pointcloud.svg?branch=master)](https://travis-ci.org/ahoarau/robot_model_to_pointcloud)
+
 RobotModel to PointCloud2
 ====================
 ![pr2 cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/pr2_cloud_small.png)
