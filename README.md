@@ -1,8 +1,12 @@
 RobotModel to PointCloud2
 ====================
-![kuka cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/robotcloud_small.png)
+![pr2 cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/pr2_cloud_small.png)
 
-This packages allows you to converts any robotModel (for now only meshes) to a PointCloud2.
+![meka cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/meka_cloud_small.png)
+
+![kuka cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/kuka_cloud_small.png)
+
+This packages allows you to converts any robotModel (for now only the collision meshes) to a PointCloud2.
 
 This can be used directly using pcl for processing (detection, collision checking etc).
 

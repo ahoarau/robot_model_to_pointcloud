@@ -98,7 +98,6 @@ int main(int argc, char** argv)
             // PointCloud to PointCloud2
             sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
             cloud_pub.publish(cloud2);
-
         }
         ros::Duration(1./50.).sleep();
         //}
