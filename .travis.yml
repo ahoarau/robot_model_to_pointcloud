@@ -22,6 +22,7 @@ before_install:
   # Create non-isolated workspace
   - mkdir -p ~/ws/src
   - pushd ~/ws/src
+  - ln -s $CI_SOURCE_PATH
   - popd
   - rosdep install -r --from-paths ~/ws/src --ignore-src --rosdistro $ROS_DISTRO -y > /dev/null
 
