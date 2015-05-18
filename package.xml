@@ -3,7 +3,7 @@
   <name>robot_model_to_pointcloud</name>
   <version>1.0.0</version>
   <description>The robot_model_to_pointcloud package converts a robotModel to a pointcloud (by reading the meshes)</description>
-  <author email="hoarau.robotics@gmail.com">Antoine Hoarau</author>
+  <maintainer email="hoarau.robotics@gmail.com">Antoine Hoarau</maintainer>
 
   <license>GPLv2</license>
   <buildtool_depend>catkin</buildtool_depend>
