@@ -25,8 +25,8 @@
 #include <Eigen/Eigen>
 
 
-#include "geometric_shapes/mesh_operations.h"
-#include "geometric_shapes/shape_operations.h"
+#include <geometric_shapes/mesh_operations.h>
+#include <geometric_shapes/shape_operations.h>
 
 int main(int argc, char** argv)
 {
@@ -37,7 +37,7 @@ int main(int argc, char** argv)
     spinner.start();
     ros::NodeHandle nh("~");
     
-    ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("robot_cloud", 1);
+    ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("robot_cloud2", 1);
     
     ROS_INFO("Loading robot from the parameter server");
 
@@ -57,58 +57,72 @@ int main(int argc, char** argv)
     planning_scene_monitor::PlanningSceneMonitor psm("/robot_description");
     psm.startStateMonitor(joint_states_topic);
     
+    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModels();
+    std::vector<std::string> mesh_filenames(link_models.size());
+    
+    
+    std::map<std::string,shapes::Mesh* > meshes;
+    
+    
+    for (unsigned i=0;i<mesh_filenames.size() ; ++i)
+    {
+      mesh_filenames[i] = link_models[i]->getVisualMeshFilename();
+      ROS_INFO_STREAM("- "<<mesh_filenames[i]);
+      if(!mesh_filenames[i].empty())
+	meshes[link_models[i]->getName()] =  shapes::createMeshFromResource(mesh_filenames[i]);
+    }
+    
+    
+    sensor_msgs::PointCloud cloud;
+    sensor_msgs::PointCloud2 cloud2;
+    geometry_msgs::Point32 pt;
+    bool initialized = false;
+    
+    ROS_INFO("Starting");
     while(ros::ok()){
-        sensor_msgs::PointCloud cloud;
-        sensor_msgs::PointCloud2 cloud2;
+        unsigned j = 0;
+        ros::Time start = ros::Time::now();
+	//if(psm.getStateMonitor()->waitForCurrentState(1.0)){
         cloud.header.frame_id=psm.getStateMonitor()->getRobotModel()->getRootLinkName();
-        geometry_msgs::Point32 pt;
-
-        //if(psm.getStateMonitor()->waitForCurrentState(1.0)){
-        const std::vector<const robot_model::LinkModel*> links = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
-
-        for (std::vector<const robot_model::LinkModel*>::const_iterator it = links.begin() ; it !=links.end() ; ++it)
+        ROS_DEBUG_STREAM("Frame id : "<<cloud.header.frame_id);
+	
+        for (std::map<std::string,shapes::Mesh* >::iterator it=meshes.begin(); it!=meshes.end() ; ++it)
         {
-            const robot_model::LinkModel* lm = *it;
-            ROS_DEBUG_STREAM(""<<lm->getName());
+            std::string name = it->first;
+            ROS_DEBUG_STREAM(""<<name);
+	    
             // Get the link transform (base to link_i )
-            const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getCollisionBodyTransform(lm,/*lm->getFirstCollisionBodyTransformIndex()*/0);
-            const std::vector<shapes::ShapeConstPtr>& shapes = lm->getShapes();
-            for(std::vector<shapes::ShapeConstPtr>::const_iterator sit=shapes.begin();sit!=shapes.end();++sit)
-            {
-                const shapes::ShapeConstPtr& shape = (*sit);
-		
-                ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
-                // Meshes to pointcloud
-                if(shape->type == shapes::MESH)
-                {
-//                  const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
-		    shapes::Mesh* mesh;
-		    std::string dir = "package://lwr_description/meshes/lwr_orig/link0.stl";    
-		    mesh = shapes::createMeshFromResource(dir);
+            const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getGlobalLinkTransform(name);
+	    ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
+	    
+	    for(std::size_t i=0;i<3*it->second->vertex_count;i=i+3)
+	    {
+		const Eigen::Vector3d vertice(it->second->vertices[i],it->second->vertices[i+1],it->second->vertices[i+2]);
+		// Get the point location with respect to the base
+		const Eigen::Vector3d vertice_transformed = Transform*vertice;
 
-                    for(std::size_t i=0;i<3*mesh->vertex_count;i=i+3)
-                    {
-                        const Eigen::Vector3d vertice(mesh->vertices[i],mesh->vertices[i+1],mesh->vertices[i+2]);
-                        // Get the point location with respect to the base
-
-                        const Eigen::Vector3d vertice_transformed = Transform*vertice;
-
-                        pt.x = vertice_transformed[0];
-                        pt.y = vertice_transformed[1];
-                        pt.z = vertice_transformed[2];
-
-                        cloud.points.push_back(pt);
-                    }
-                }
-
-            }
-            cloud.header.stamp = ros::Time::now();
-            // PointCloud to PointCloud2
-            sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
-            cloud_pub.publish(cloud2);
+		pt.x = vertice_transformed[0];
+		pt.y = vertice_transformed[1];
+		pt.z = vertice_transformed[2];
+		if(!initialized)
+		  cloud.points.push_back(pt);
+		else
+		  cloud.points[j] = pt;
+		j++;
+	    }
         }
-        ros::Duration(1./50.).sleep();
+        cloud.header.stamp = ros::Time::now();
+        // PointCloud to PointCloud2
+        sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
+        cloud_pub.publish(cloud2);
+	
+	if(!initialized)
+	  initialized = true;
+	  
+        ROS_INFO_STREAM("Computation time : "<<(ros::Time::now() - start).toSec());
+        //ros::Duration(1./50.).sleep();
         //}
+	
     }
     return 0;
 }
