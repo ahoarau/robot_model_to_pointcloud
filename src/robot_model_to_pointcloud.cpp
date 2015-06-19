@@ -24,6 +24,10 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <Eigen/Eigen>
 
+
+#include "geometric_shapes/mesh_operations.h"
+#include "geometric_shapes/shape_operations.h"
+
 int main(int argc, char** argv)
 {
     ros::Time::init();
@@ -72,12 +76,16 @@ int main(int argc, char** argv)
             for(std::vector<shapes::ShapeConstPtr>::const_iterator sit=shapes.begin();sit!=shapes.end();++sit)
             {
                 const shapes::ShapeConstPtr& shape = (*sit);
-
+		
                 ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
                 // Meshes to pointcloud
                 if(shape->type == shapes::MESH)
                 {
-                    const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
+//                  const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
+		    shapes::Mesh* mesh;
+		    std::string dir = "package://lwr_description/meshes/lwr_orig/link0.stl";    
+		    mesh = shapes::createMeshFromResource(dir);
+
                     for(std::size_t i=0;i<3*mesh->vertex_count;i=i+3)
                     {
                         const Eigen::Vector3d vertice(mesh->vertices[i],mesh->vertices[i+1],mesh->vertices[i+2]);
