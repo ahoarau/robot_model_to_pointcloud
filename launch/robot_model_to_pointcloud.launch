@@ -1,0 +1,10 @@
+<launch>
+
+<arg name="publish_frequency" default="50.0"/>
+
+<node name="robot_model_to_pointcloud" pkg="robot_model_to_pointcloud" type="robot_model_to_pointcloud" output="screen">
+
+        <param name="publish_frequency" value="$(arg publish_frequency)"/>
+
+</node>
+</launch>
