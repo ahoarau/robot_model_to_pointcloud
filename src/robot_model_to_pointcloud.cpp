@@ -28,6 +28,9 @@
 #include <geometric_shapes/mesh_operations.h>
 #include <geometric_shapes/shape_operations.h>
 
+typedef std::pair<const moveit::core::LinkModel*, shapes::Mesh*> linkMap;
+typedef std::map<std::string, linkMap > meshesMap;
+
 int main(int argc, char** argv)
 {
     ros::Time::init();
@@ -41,35 +44,45 @@ int main(int argc, char** argv)
     
     ROS_INFO("Loading robot from the parameter server");
 
-    std::string robot_description;
-    if(! nh.getParam("/robot_description",robot_description))
+
+    std::string robot_description("");
+    if(! ros::param::get("robot_description",robot_description))
     {
-        ROS_ERROR("/robot_description is not broadcasted");
+        ROS_ERROR("robot_description not found");
         return 0;
     }
 
-    std::string joint_states_topic("/joint_states");
-    if(! nh.getParam("/joint_states",joint_states_topic))
+    std::string joint_states_topic("joint_states");
+    if(! nh.getParam("joint_states",joint_states_topic))
     {
         ROS_WARN("joint_states_topic will be set to default : %s",joint_states_topic.c_str());
     }
 
-    planning_scene_monitor::PlanningSceneMonitor psm("/robot_description");
+    int publish_frequency(50.0);
+    if(! nh.getParam("publish_frequency",publish_frequency))
+    {
+        ROS_WARN("publish_frequency will be set to 50Hz");
+    }
+
+    planning_scene_monitor::PlanningSceneMonitor psm("robot_description");
     psm.startStateMonitor(joint_states_topic);
     
     const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModels();
     std::vector<std::string> mesh_filenames(link_models.size());
     
     
-    std::map<std::string,shapes::Mesh* > meshes;
+    meshesMap meshes;
     
     
     for (unsigned i=0;i<mesh_filenames.size() ; ++i)
     {
-      mesh_filenames[i] = link_models[i]->getVisualMeshFilename();
-      ROS_INFO_STREAM("- "<<mesh_filenames[i]);
-      if(!mesh_filenames[i].empty())
-	meshes[link_models[i]->getName()] =  shapes::createMeshFromResource(mesh_filenames[i]);
+        mesh_filenames[i] = link_models[i]->getVisualMeshFilename();
+        ROS_INFO_STREAM("- "<<mesh_filenames[i]);
+        if(!mesh_filenames[i].empty())
+            meshes[link_models[i]->getName()] = (
+                        std::make_pair(link_models[i],
+                                       shapes::createMeshFromResource(mesh_filenames[i]))
+                        );
     }
     
     
@@ -77,52 +90,72 @@ int main(int argc, char** argv)
     sensor_msgs::PointCloud2 cloud2;
     geometry_msgs::Point32 pt;
     bool initialized = false;
-    
+    Eigen::Vector3d vertice;
+    Eigen::Vector3d vertice_transformed;
+    ros::Duration elapsed;
+    ros::Duration sleep_time(1./publish_frequency);
+
     ROS_INFO("Starting");
     while(ros::ok()){
         unsigned j = 0;
-        ros::Time start = ros::Time::now();
-	//if(psm.getStateMonitor()->waitForCurrentState(1.0)){
-        cloud.header.frame_id=psm.getStateMonitor()->getRobotModel()->getRootLinkName();
-        ROS_DEBUG_STREAM("Frame id : "<<cloud.header.frame_id);
-	
-        for (std::map<std::string,shapes::Mesh* >::iterator it=meshes.begin(); it!=meshes.end() ; ++it)
-        {
-            std::string name = it->first;
-            ROS_DEBUG_STREAM(""<<name);
-	    
-            // Get the link transform (base to link_i )
-            const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getGlobalLinkTransform(name);
-	    ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
-	    
-	    for(std::size_t i=0;i<3*it->second->vertex_count;i=i+3)
-	    {
-		const Eigen::Vector3d vertice(it->second->vertices[i],it->second->vertices[i+1],it->second->vertices[i+2]);
-		// Get the point location with respect to the base
-		const Eigen::Vector3d vertice_transformed = Transform*vertice;
 
-		pt.x = vertice_transformed[0];
-		pt.y = vertice_transformed[1];
-		pt.z = vertice_transformed[2];
-		if(!initialized)
-		  cloud.points.push_back(pt);
-		else
-		  cloud.points[j] = pt;
-		j++;
-	    }
+        if(psm.getStateMonitor()->waitForCurrentState(1.0)){
+
+            const ros::Time start = ros::Time::now();
+
+            cloud.header.frame_id = psm.getStateMonitor()->getRobotModel()->getRootLinkName();
+            ROS_DEBUG_STREAM("Frame id : "<<cloud.header.frame_id);
+
+            for (meshesMap::const_iterator it=meshes.begin() ; it!=meshes.end() ; ++it)
+            {
+                const std::string& name = it->first;
+                const linkMap& link_p = it->second;
+
+
+                ROS_DEBUG_STREAM(""<<name);
+
+                // Get the link transform (base to link_i )
+                //const Eigen::Affine3d& OriginTransform = link_p.first->getVisualMeshOrigin();
+                const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getCollisionBodyTransform(link_p.first,0);
+
+                ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
+
+                for(std::size_t i=0;i<3*link_p.second->vertex_count;i=i+3)
+                {
+                    vertice[0] = link_p.second->vertices[i];
+                    vertice[1] = link_p.second->vertices[i+1];
+                    vertice[2] = link_p.second->vertices[i+2];
+                    // Get the point location with respect to the base
+                    vertice_transformed =  Transform*vertice;
+
+                    pt.x = vertice_transformed[0];
+                    pt.y = vertice_transformed[1];
+                    pt.z = vertice_transformed[2];
+                    if(!initialized)
+                        cloud.points.push_back(pt);
+                    else
+                        cloud.points[j] = pt;
+                    j++;
+                }
+            }
+            cloud.header.stamp = ros::Time::now();
+            // PointCloud to PointCloud2
+            sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
+            cloud_pub.publish(cloud2);
+
+            if(!initialized)
+                initialized = true;
+
+            elapsed = ros::Time::now() - start;
+            ROS_DEBUG_STREAM("Computation time : "<<elapsed.toSec());
+            if(elapsed < sleep_time)
+                (sleep_time - elapsed).sleep();
+            else
+                ROS_INFO_THROTTLE(1,"Loop is slower then expected period");
+        }else{
+            ROS_WARN("Waiting for complete state !");
         }
-        cloud.header.stamp = ros::Time::now();
-        // PointCloud to PointCloud2
-        sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
-        cloud_pub.publish(cloud2);
-	
-	if(!initialized)
-	  initialized = true;
-	  
-        ROS_INFO_STREAM("Computation time : "<<(ros::Time::now() - start).toSec());
-        //ros::Duration(1./50.).sleep();
-        //}
-	
+
     }
     return 0;
 }
