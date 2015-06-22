@@ -67,7 +67,7 @@ int main(int argc, char** argv)
     planning_scene_monitor::PlanningSceneMonitor psm("robot_description");
     psm.startStateMonitor(joint_states_topic);
     
-    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModels();
+    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
     std::vector<std::string> mesh_filenames(link_models.size());
     
     
@@ -115,10 +115,15 @@ int main(int argc, char** argv)
                 ROS_DEBUG_STREAM(""<<name);
 
                 // Get the link transform (base to link_i )
-                //const Eigen::Affine3d& OriginTransform = link_p.first->getVisualMeshOrigin();
+                //Might be a moveit bug : getCollisionBodyTransform
+                //and getGlobalLinkTransform does not return the same thing
+                //even if the visual and collisions are defined the same way.
+                //const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getGlobalLinkTransform(link_p.first);
+
                 const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getCollisionBodyTransform(link_p.first,0);
 
-                ROS_DEBUG_STREAM("Transform : \n"<<Transform.matrix());
+                ROS_DEBUG_STREAM("CollisionTransform : "<<std::endl<<Transform.matrix()
+                                 <<"GlobaLinkTransform : "<<std::endl<<psm.getStateMonitor()->getCurrentState()->getGlobalLinkTransform(link_p.first).matrix());
 
                 for(std::size_t i=0;i<3*link_p.second->vertex_count;i=i+3)
                 {
