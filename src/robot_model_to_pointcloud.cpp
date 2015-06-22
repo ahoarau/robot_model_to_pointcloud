@@ -64,16 +64,22 @@ int main(int argc, char** argv)
         ROS_WARN("publish_frequency will be set to 50Hz");
     }
 
+    bool use_visual_mesh(false);
+    if(! nh.getParam("use_visual_mesh",use_visual_mesh))
+    {
+        ROS_INFO("Using collision mesh");
+    }
+
     planning_scene_monitor::PlanningSceneMonitor psm("robot_description");
     psm.startStateMonitor(joint_states_topic);
-    
-    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
+
+    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModels();//WithCollisionGeometry();
     std::vector<std::string> mesh_filenames(link_models.size());
     
     
     meshesMap meshes;
     
-    
+    // Loading the visual meshes
     for (unsigned i=0;i<mesh_filenames.size() ; ++i)
     {
         mesh_filenames[i] = link_models[i]->getVisualMeshFilename();
@@ -87,6 +93,7 @@ int main(int argc, char** argv)
     
     
     sensor_msgs::PointCloud cloud;
+    cloud.points.reserve(5000);
     sensor_msgs::PointCloud2 cloud2;
     geometry_msgs::Point32 pt;
     bool initialized = false;
@@ -106,6 +113,15 @@ int main(int argc, char** argv)
             cloud.header.frame_id = psm.getStateMonitor()->getRobotModel()->getRootLinkName();
             ROS_DEBUG_STREAM("Frame id : "<<cloud.header.frame_id);
 
+            // Get the link transform (base to link_i )
+            //Might be a moveit bug : getCollisionBodyTransform
+            //and getGlobalLinkTransform does not return the same thing
+            //even if the visual and collisions are defined the same way.
+            //const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getGlobalLinkTransform(link_p.first);
+            const std::pair<robot_model::RobotStatePtr,ros::Time> robot_state = psm.getStateMonitor()->getCurrentStateAndTime();
+            cloud.header.stamp = robot_state.second;
+
+
             for (meshesMap::const_iterator it=meshes.begin() ; it!=meshes.end() ; ++it)
             {
                 const std::string& name = it->first;
@@ -114,36 +130,66 @@ int main(int argc, char** argv)
 
                 ROS_DEBUG_STREAM(""<<name);
 
-                // Get the link transform (base to link_i )
-                //Might be a moveit bug : getCollisionBodyTransform
-                //and getGlobalLinkTransform does not return the same thing
-                //even if the visual and collisions are defined the same way.
-                //const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getGlobalLinkTransform(link_p.first);
 
-                const Eigen::Affine3d& Transform = psm.getStateMonitor()->getCurrentState()->getCollisionBodyTransform(link_p.first,0);
+                const Eigen::Affine3d& Transform = robot_state.first->getCollisionBodyTransform(link_p.first,0);
 
                 ROS_DEBUG_STREAM("CollisionTransform : "<<std::endl<<Transform.matrix()
-                                 <<"GlobaLinkTransform : "<<std::endl<<psm.getStateMonitor()->getCurrentState()->getGlobalLinkTransform(link_p.first).matrix());
+                                 <<"GlobaLinkTransform : "<<std::endl<<robot_state.first->getGlobalLinkTransform(link_p.first).matrix());
 
-                for(std::size_t i=0;i<3*link_p.second->vertex_count;i=i+3)
+                if(use_visual_mesh == false)
                 {
-                    vertice[0] = link_p.second->vertices[i];
-                    vertice[1] = link_p.second->vertices[i+1];
-                    vertice[2] = link_p.second->vertices[i+2];
-                    // Get the point location with respect to the base
-                    vertice_transformed =  Transform*vertice;
+                    // ######################## Using Collision Meshes (default) ################################### //
+                    const std::vector<shapes::ShapeConstPtr>& shapes = link_p.first->getShapes();
+                    for(std::vector<shapes::ShapeConstPtr>::const_iterator sit=shapes.begin();sit!=shapes.end();++sit)
+                    {
+                        const shapes::ShapeConstPtr& shape = (*sit);
 
-                    pt.x = vertice_transformed[0];
-                    pt.y = vertice_transformed[1];
-                    pt.z = vertice_transformed[2];
-                    if(!initialized)
-                        cloud.points.push_back(pt);
-                    else
-                        cloud.points[j] = pt;
-                    j++;
+                        // Meshes to pointcloud
+                        if(shape->type != shapes::MESH)
+                            continue;
+
+                        const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
+                        for(std::size_t i=0;i<3*mesh->vertex_count;i=i+3)
+                        {
+                            vertice[0] = link_p.second->vertices[i];
+                            vertice[1] = link_p.second->vertices[i+1];
+                            vertice[2] = link_p.second->vertices[i+2];
+                            // Get the point location with respect to the base
+                            vertice_transformed =  Transform*vertice;
+
+                            pt.x = vertice_transformed[0];
+                            pt.y = vertice_transformed[1];
+                            pt.z = vertice_transformed[2];
+                            if(!initialized)
+                                cloud.points.push_back(pt);
+                            else
+                                cloud.points[j] = pt;
+                            j++;
+                        }
+                    }
+                    // ######################## END Using Collision Meshes (default) ############################## //
+                }else{
+                    // ######################## Using Visual Meshes ################################### //
+                    for(std::size_t i=0;i<3*link_p.second->vertex_count;i=i+3)
+                    {
+                        vertice[0] = link_p.second->vertices[i];
+                        vertice[1] = link_p.second->vertices[i+1];
+                        vertice[2] = link_p.second->vertices[i+2];
+                        // Get the point location with respect to the base
+                        vertice_transformed =  Transform*vertice;
+
+                        pt.x = vertice_transformed[0];
+                        pt.y = vertice_transformed[1];
+                        pt.z = vertice_transformed[2];
+                        if(!initialized)
+                            cloud.points.push_back(pt);
+                        else
+                            cloud.points[j] = pt;
+                        j++;
+                    }
                 }
+                // ######################## END Using Visual Meshes  ################################### //
             }
-            cloud.header.stamp = ros::Time::now();
             // PointCloud to PointCloud2
             sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
             cloud_pub.publish(cloud2);
