@@ -4,7 +4,7 @@ project(robot_model_to_pointcloud)
 find_package(catkin REQUIRED COMPONENTS moveit_core moveit_ros_planning moveit_ros_planning_interface pluginlib)
 find_package(Boost REQUIRED)
 
-list( APPEND CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS} -g -ftest-coverage -fprofile-arcs")
+#list( APPEND CMAKE_CXX_FLAGS "-std=c++11")
 
 set(CMAKE_BUILD_TYPE Release)
 ###################################
