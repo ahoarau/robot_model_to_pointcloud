@@ -73,7 +73,7 @@ int main(int argc, char** argv)
     planning_scene_monitor::PlanningSceneMonitor psm("robot_description");
     psm.startStateMonitor(joint_states_topic);
 
-    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModels();//WithCollisionGeometry();
+    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
     std::vector<std::string> mesh_filenames(link_models.size());
     
     
@@ -145,6 +145,7 @@ int main(int argc, char** argv)
                         const shapes::ShapeConstPtr& shape = (*sit);
 
                         // Meshes to pointcloud
+                        ROS_DEBUG_STREAM("Type : "<<shape->type);
                         if(shape->type != shapes::MESH)
                             continue;
 
