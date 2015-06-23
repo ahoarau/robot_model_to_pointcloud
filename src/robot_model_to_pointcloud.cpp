@@ -150,11 +150,12 @@ int main(int argc, char** argv)
                             continue;
 
                         const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
+                        ROS_DEBUG_STREAM("mesh->vertex_count : "<<mesh->vertex_count);
                         for(std::size_t i=0;i<3*mesh->vertex_count;i=i+3)
                         {
-                            vertice[0] = link_p.second->vertices[i];
-                            vertice[1] = link_p.second->vertices[i+1];
-                            vertice[2] = link_p.second->vertices[i+2];
+                            vertice[0] = mesh->vertices[i];
+                            vertice[1] = mesh->vertices[i+1];
+                            vertice[2] = mesh->vertices[i+2];
                             // Get the point location with respect to the base
                             vertice_transformed =  Transform*vertice;
 
