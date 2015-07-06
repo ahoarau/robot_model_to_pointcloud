@@ -4,6 +4,7 @@
 // ROS
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
+#include <sensor_msgs/ChannelFloat32.h>
 #include <geometry_msgs/Point32.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/point_cloud_conversion.h>
@@ -102,10 +103,15 @@ int main(int argc, char** argv)
     ros::Duration elapsed;
     ros::Duration sleep_time(1./publish_frequency);
 
+    sensor_msgs::ChannelFloat32 link_info_channel;
+    link_info_channel.name = "link_nb";
+    link_info_channel.values.reserve(5000);
+    
     ROS_INFO("Starting");
     while(ros::ok()){
         unsigned j = 0;
-
+	unsigned link_nb = 0;
+	
         if(psm.getStateMonitor()->waitForCurrentState(1.0)){
 
             const ros::Time start = ros::Time::now();
@@ -162,10 +168,16 @@ int main(int argc, char** argv)
                             pt.x = vertice_transformed[0];
                             pt.y = vertice_transformed[1];
                             pt.z = vertice_transformed[2];
+			    
                             if(!initialized)
+			    {
                                 cloud.points.push_back(pt);
-                            else
+				link_info_channel.values.push_back(link_nb);
+			    }else{
                                 cloud.points[j] = pt;
+				link_info_channel.values[i] = link_nb;
+			    }
+			    
                             j++;
                         }
                     }
@@ -183,19 +195,31 @@ int main(int argc, char** argv)
                         pt.x = vertice_transformed[0];
                         pt.y = vertice_transformed[1];
                         pt.z = vertice_transformed[2];
+			
                         if(!initialized)
-                            cloud.points.push_back(pt);
-                        else
-                            cloud.points[j] = pt;
+			{
+			    cloud.points.push_back(pt);
+			    link_info_channel.values.push_back(link_nb);
+			}else{
+			    cloud.points[j] = pt;
+			    link_info_channel.values[i] = link_nb;
+			}
+			    
                         j++;
                     }
                 }
                 // ######################## END Using Visual Meshes  ################################### //
+                link_nb++;
             }
             // PointCloud to PointCloud2
+            if(!initialized)
+	      cloud.channels.push_back(link_info_channel);
+	    else
+	      cloud.channels[0] = link_info_channel;
+	    
             sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
             cloud_pub.publish(cloud2);
-
+	    
             if(!initialized)
                 initialized = true;
 
