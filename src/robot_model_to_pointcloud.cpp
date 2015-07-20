@@ -104,7 +104,7 @@ int main(int argc, char** argv)
     ros::Duration sleep_time(1./publish_frequency);
 
     sensor_msgs::ChannelFloat32 link_info_channel;
-    link_info_channel.name = "link_nb";
+    link_info_channel.name = "intensity";
     link_info_channel.values.reserve(5000);
     
     ROS_INFO("Starting");
