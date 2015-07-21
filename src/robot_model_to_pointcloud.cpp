@@ -175,7 +175,7 @@ int main(int argc, char** argv)
 				link_info_channel.values.push_back(link_nb);
 			    }else{
                                 cloud.points[j] = pt;
-				link_info_channel.values[i] = link_nb;
+				link_info_channel.values[j] = link_nb;
 			    }
 			    
                             j++;
@@ -202,7 +202,7 @@ int main(int argc, char** argv)
 			    link_info_channel.values.push_back(link_nb);
 			}else{
 			    cloud.points[j] = pt;
-			    link_info_channel.values[i] = link_nb;
+			    link_info_channel.values[j] = link_nb;
 			}
 			    
                         j++;
