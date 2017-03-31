@@ -14,15 +14,8 @@
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
-// #include <moveit/kinematic_constraints/utils.h>
-// #include <moveit_msgs/DisplayTrajectory.h>
-// #include <moveit_msgs/PlanningScene.h>
-// #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-// Eigen
-// #include <eigen_conversions/eigen_msg.h>
-#include <Eigen/Eigen>
 
 
 #include <geometric_shapes/mesh_operations.h>
@@ -73,7 +66,7 @@ int main(int argc, char** argv)
     planning_scene_monitor::PlanningSceneMonitor psm("robot_description");
     psm.startStateMonitor(joint_states_topic);
     
-    const std::vector<const moveit::core::LinkModel*> link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
+    auto link_models = psm.getStateMonitor()->getCurrentState()->getRobotModel()->getLinkModelsWithCollisionGeometry();
     std::vector<std::string> mesh_filenames(link_models.size());
     
     
@@ -107,11 +100,13 @@ int main(int argc, char** argv)
         link_info_channel.values.reserve(5000);
         
         ROS_INFO("Starting");
-        while(ros::ok()){
+        while(ros::ok())
+        {
             unsigned j = 0;
             unsigned link_nb = 0;
             
-            if(psm.getStateMonitor()->waitForCurrentState(1.0)){
+            if(psm.getStateMonitor()->waitForCurrentState(1.0))
+            {
                 
                 const ros::Time start = ros::Time::now();
                 
@@ -127,36 +122,39 @@ int main(int argc, char** argv)
                 cloud.header.stamp = robot_state.second;
                 
                 
-                for (meshesMap::const_iterator it=meshes.begin() ; it!=meshes.end() ; ++it)
+                for (auto& it : meshes)
                 {
-                    const std::string& name = it->first;
-                    const linkMap& link_p = it->second;
+                    auto name = it.first;
+                    auto link_p = it.second;
                     
                     
                     ROS_DEBUG_STREAM(""<<name);
                     
                     
-                    const Eigen::Affine3d& Transform = robot_state.first->getCollisionBodyTransform(link_p.first,0);
+                    auto Transform = robot_state.first->getCollisionBodyTransform(link_p.first,0);
                     
                     ROS_DEBUG_STREAM("CollisionTransform : "<<std::endl<<Transform.matrix()
                     <<"GlobaLinkTransform : "<<std::endl<<robot_state.first->getGlobalLinkTransform(link_p.first).matrix());
                     
                     if(use_visual_mesh == false)
                     {
-                        // ######################## Using Collision Meshes (default) ################################### //
-                        const std::vector<shapes::ShapeConstPtr>& shapes = link_p.first->getShapes();
-                        for(std::vector<shapes::ShapeConstPtr>::const_iterator sit=shapes.begin();sit!=shapes.end();++sit)
+                        // ######################## Using Collision Meshes (default) ################################### //                        
+                        for(auto& shape : link_p.first->getShapes())
                         {
-                            const shapes::ShapeConstPtr& shape = (*sit);
-                            
                             // Meshes to pointcloud
                             ROS_DEBUG_STREAM("Type : "<<shape->type);
-                            if(shape->type != shapes::MESH)
-                            continue;
                             
-                            const boost::shared_ptr<const shapes::Mesh> mesh = boost::static_pointer_cast<const shapes::Mesh>(shape);
+                            if(shape->type != shapes::MESH)
+                            {
+                                //TODO: support other types
+                                continue;
+                            }
+                            
+                            auto mesh = static_cast<const shapes::Mesh*>(shape.get());
+                            
                             ROS_DEBUG_STREAM("mesh->vertex_count : "<<mesh->vertex_count);
-                            for(std::size_t i=0;i<3*mesh->vertex_count;i=i+3)
+                            
+                            for(auto i=0;i<3*mesh->vertex_count;i=i+3)
                             {
                                 vertice[0] = mesh->vertices[i];
                                 vertice[1] = mesh->vertices[i+1];
@@ -187,7 +185,7 @@ int main(int argc, char** argv)
                     else
                     {
                         // ######################## Using Visual Meshes ################################### //
-                        for(std::size_t i=0;i<3*link_p.second->vertex_count;i=i+3)
+                        for(auto i=0;i<3*link_p.second->vertex_count;i=i+3)
                         {
                             vertice[0] = link_p.second->vertices[i];
                             vertice[1] = link_p.second->vertices[i+1];
@@ -218,18 +216,25 @@ int main(int argc, char** argv)
                 }
                 // PointCloud to PointCloud2
                 if(!initialized)
-                cloud.channels.push_back(link_info_channel);
+                {
+                    cloud.channels.push_back(link_info_channel);
+                }
                 else
-                cloud.channels[0] = link_info_channel;
+                {
+                    cloud.channels[0] = link_info_channel;
+                }
                 
                 sensor_msgs::convertPointCloudToPointCloud2(cloud,cloud2);
                 cloud_pub.publish(cloud2);
                 
                 if(!initialized)
-                initialized = true;
+                {
+                    initialized = true;
+                }
                 
                 elapsed = ros::Time::now() - start;
                 ROS_DEBUG_STREAM("Computation time : "<<elapsed.toSec());
+                
                 if(elapsed < sleep_time)
                 {
                     (sleep_time - elapsed).sleep();
