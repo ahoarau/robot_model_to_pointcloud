@@ -1,10 +1,13 @@
+[![Build Status](https://travis-ci.org/ahoarau/robot_model_to_pointcloud.svg?branch=master)](https://travis-ci.org/ahoarau/robot_model_to_pointcloud)
+
 RobotModel to PointCloud2
 ====================
-![pr2 cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/pr2_cloud_small.png)
 
-![meka cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/meka_cloud_small.png)
+![kuka cloud](https://drive.google.com/uc?id=0B6zWJ1Gzg1UTQ3RZM2cxRV9EblE)
 
-![kuka cloud](http://googledrive.com/host/0B6zWJ1Gzg1UTUW1rYVpiMUZvUkk/kuka_cloud_small.png)
+![pr2 cloud](https://drive.google.com/uc?id=0B6zWJ1Gzg1UTSjNnYVVMa1Ewa1E)
+
+![meka cloud](https://drive.google.com/uc?id=0B6zWJ1Gzg1UTWXVYWWxfN09MaDg)
 
 This packages allows you to converts any robotModel (for now only the collision meshes) to a PointCloud2.
 

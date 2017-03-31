@@ -1,0 +1,11 @@
+<launch>
+
+<arg name="publish_frequency" default="50.0"/>
+<arg name="use_visual_mesh" default="false"/>
+
+<node name="robot_model_to_pointcloud" pkg="robot_model_to_pointcloud" type="robot_model_to_pointcloud" output="screen">
+
+        <param name="publish_frequency" value="$(arg publish_frequency)"/>
+	<param name="use_visual_mesh" value="$(arg use_visual_mesh)"/>
+</node>
+</launch>
