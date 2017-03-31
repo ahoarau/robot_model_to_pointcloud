@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 2.8.3)
 project(robot_model_to_pointcloud)
 
 find_package(catkin REQUIRED COMPONENTS moveit_core moveit_ros_planning moveit_ros_planning_interface pluginlib)
-find_package(Boost REQUIRED)
 
 #list( APPEND CMAKE_CXX_FLAGS "-std=c++11")
 
@@ -14,14 +13,13 @@ catkin_package(
   CATKIN_DEPENDS
     moveit_core
     moveit_ros_planning_interface
-    interactive_markers
 )
 
 ###########
 ## Build ##
 ###########
 
-include_directories(SYSTEM ${Boost_INCLUDE_DIR} ${EIGEN_INCLUDE_DIRS})
+include_directories(SYSTEM ${EIGEN_INCLUDE_DIRS})
 include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
